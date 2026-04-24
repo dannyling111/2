@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 时代职业赚钱路径诊断器 v0.3</title>
+  <style>
+    body {font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; background:#0b1020; color:#eaf0ff;}
+    .wrap {max-width: 1060px; margin: 0 auto; padding: 24px;}
+    .card {background:#121a31; border:1px solid #273255; border-radius:12px; padding:18px; margin:14px 0;}
+    .muted {color:#a8b3c9;} h1{margin:0 0 8px;} h2{margin:0 0 10px;}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;} @media (max-width:780px){.grid{grid-template-columns:1fr;}}
+    label{display:block;font-weight:600;margin-bottom:6px;} input,select,textarea,button{width:100%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #3a4a74;background:#0f1730;color:#eaf0ff;}
+    textarea{min-height:72px;} .actions{display:flex;gap:10px;flex-wrap:wrap;} .actions button{width:auto;cursor:pointer;}
+    .primary{background:#2d6bff;border-color:#2d6bff;} .ok{background:#2b8a57;border-color:#2b8a57;}
+    .result{white-space:pre-wrap;line-height:1.55;}
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <h1>AI 时代职业赚钱路径诊断器（自动迭代版）</h1>
+  <p class="muted">支持 5~20 轮无人干预迭代，并自动判断是否“继续多跑”还是“已收敛该切换数据验证”。</p>
+
+  <section class="card">
+    <h2>输入</h2>
+    <div class="grid">
+      <div><label for="job">当前职业</label><input id="job" placeholder="例如：内容运营" /></div>
+      <div><label for="skills">核心技能</label><input id="skills" placeholder="例如：写作、剪辑" /></div>
+      <div><label for="hours">每天可投入时间（小时）</label><input id="hours" type="number" min="0" max="24" value="2" /></div>
+      <div><label for="incomeGoal">目标月收入（人民币）</label><input id="incomeGoal" type="number" value="20000" /></div>
+      <div><label for="incomeNow">当前收入来源</label><input id="incomeNow" placeholder="工资/自由职业/电商" /></div>
+      <div>
+        <label for="risk">风险偏好</label>
+        <select id="risk"><option value="low">低风险</option><option value="mid" selected>中风险</option><option value="high">高风险</option></select>
+      </div>
+      <div>
+        <label for="rounds">自动迭代轮数（5-20）</label>
+        <input id="rounds" type="number" min="5" max="20" value="8" />
+      </div>
+    </div>
+    <div class="grid" style="margin-top:12px">
+      <label><input type="checkbox" id="canCode" /> 我会写代码</label>
+      <label><input type="checkbox" id="doContent" checked /> 我愿意做内容</label>
+      <label><input type="checkbox" id="doConsult" /> 我愿意做咨询</label>
+      <label><input type="checkbox" id="doProduct" checked /> 我愿意做产品</label>
+    </div>
+    <div style="margin-top:12px"><label for="notes">补充信息</label><textarea id="notes" placeholder="资源、限制、地域等"></textarea></div>
+    <div class="actions" style="margin-top:12px">
+      <button id="runReport" class="primary">生成单轮报告</button>
+      <button id="runAuto" class="ok">自动迭代 N 轮（无人干预）</button>
+      <button id="copy">复制 Markdown</button>
+    </div>
+  </section>
+
+  <section class="card"><h2>单轮结果</h2><div id="output" class="result muted">点击“生成单轮报告”。</div></section>
+  <section class="card"><h2>自动迭代日志</h2><div id="autolog" class="result muted">点击“自动迭代 N 轮（无人干预）”。</div></section>
+</main>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+let latestReport = "";
+
+function getProfile(){
+  return {
+    job: $("job").value.trim() || "未填写",
+    skills: $("skills").value.trim() || "未填写",
+    hours: Number($("hours").value || 0),
+    incomeGoal: Number($("incomeGoal").value || 0),
+    incomeNow: $("incomeNow").value.trim() || "未填写",
+    risk: $("risk").value,
+    canCode: $("canCode").checked,
+    doContent: $("doContent").checked,
+    doConsult: $("doConsult").checked,
+    doProduct: $("doProduct").checked,
+    notes: $("notes").value.trim(),
+    rounds: Math.min(20, Math.max(5, Number($("rounds").value || 8)))
+  };
+}
+
+function riskScore(job, canCode){
+  let score = 60;
+  if (/数据|产品|程序|研发/.test(job)) score -= 10;
+  if (/客服|录入|文员/.test(job)) score += 15;
+  if (canCode) score -= 8;
+  return Math.max(20, Math.min(95, score));
+}
+
+function pickPaths(p){
+  const out=[];
+  if (p.doProduct) out.push("做垂直职业 AI 诊断工具（免费诊断→模板包变现）");
+  if (p.doContent) out.push("内容矩阵获客（短视频+图文）导流低价报告");
+  if (p.doConsult) out.push("1v1 咨询交付并标准化成高毛利模板");
+  if (p.canCode) out.push("自动化脚本/微产品按月订阅收费");
+  while (out.length < 3) out.push("职业专属 Prompt + SOP 包售卖");
+  return out.slice(0,3);
+}
+
+function basicReport(p){
+  const risk = riskScore(p.job, p.canCode);
+  const riskText = risk >= 75 ? "高风险：应尽快转向AI增强型岗位" : risk >= 50 ? "中风险：先做AI协作副业" : "低风险：放大既有优势并产品化";
+  const paths = pickPaths(p);
+  return `# AI职业赚钱路径诊断报告\n\n- 职业：${p.job}\n- 技能：${p.skills}\n- 每日投入：${p.hours}小时\n- 当前收入：${p.incomeNow}\n- 目标月收入：¥${p.incomeGoal}\n\n## 风险评估\n- 替代风险：${risk}%\n- 判断：${riskText}\n\n## 3条路径\n1. ${paths[0]}\n2. ${paths[1]}\n3. ${paths[2]}\n`;
+}
+
+function scorePlan(plan){
+  const scores = {
+    pain: plan.niche.includes("泛") ? 5 : 9,
+    willingness: /模板|咨询|订阅|训练营/.test(plan.offer) ? 8 : 6,
+    growth: /SEO|矩阵/.test(plan.acquisition) ? 8 : 6,
+    mvp: /规则|前端/.test(plan.stack) ? 9 : 7,
+    diff: /垂直|行业/.test(plan.niche) ? 8 : 6,
+    automation: /自动/.test(plan.validation) ? 9 : 6,
+    fit: /GitHub|Markdown/.test(plan.stack) ? 9 : 7
+  };
+  const vals = Object.values(scores);
+  return {scores, total:Number((vals.reduce((a,b)=>a+b,0) / vals.length).toFixed(2))};
+}
+
+function critiquePlan(s, plan){
+  const notes=[];
+  if (s.pain < 8) notes.push("用户太泛，收敛到高痛点垂直人群");
+  if (s.willingness < 8) notes.push("补充阶梯收费（免费+低价+中价）");
+  if (s.growth < 8) notes.push("获客改为SEO长尾+内容矩阵双引擎");
+  if (s.automation < 8) notes.push("加入反馈自动回流到下一轮");
+  if (plan.risks.includes("反馈闭环弱")) notes.push("增加输入完成率/复制率/分享率追踪");
+  return notes;
+}
+
+function revisePlan(plan, notes, roundId){
+  const p = {...plan, risks:[...plan.risks]};
+  notes.forEach(n=>{
+    if (n.includes("收敛")) p.niche = "垂直行业：自由职业内容创作者";
+    if (n.includes("阶梯收费")) p.offer = "免费诊断 + 39元模板 + 299元咨询";
+    if (n.includes("双引擎")) p.acquisition = "SEO长尾 + 内容矩阵";
+    if (n.includes("反馈自动回流")) p.validation = "自动收集评分并回流策略";
+    if (n.includes("追踪")) p.validation += "；追踪完成率/复制率/分享率";
+  });
+  if (roundId >= 3 && !p.stack.includes("GitHub")) p.stack += " + GitHub + Markdown";
+  p.risks = p.risks.filter(r=>r!=="反馈闭环弱");
+  if (!p.risks.includes("样本量不足")) p.risks.push("样本量不足");
+  return p;
+}
+
+function advice(history, patience=3){
+  if(history.length < 2) return "轮次太少，建议至少 5 轮。";
+  const deltas = [];
+  for (let i=1;i<history.length;i++) deltas.push(Number((history[i].total-history[i-1].total).toFixed(2)));
+  const tail = deltas.slice(-patience);
+  const stable = tail.filter(d=>d<=0.01).length;
+  if (tail.length===patience && stable===patience) return "最近几轮已收敛：建议切到真实用户数据优化，而不是继续盲跑。";
+  return "仍有提升空间：建议继续加 3~5 轮，并增加策略分支。";
+}
+
+function runAutopilot(rounds){
+  let plan = {
+    niche: "泛职业人群",
+    offer: "职业诊断网页 + 报告",
+    acquisition: "内容平台泛流量",
+    validation: "上线后观察访问量",
+    stack: "前端表单 + 规则引擎",
+    risks: ["用户太泛","付费路径不清晰","反馈闭环弱"]
+  };
+
+  const history = [];
+  for(let i=1;i<=rounds;i++){
+    const {scores,total} = scorePlan(plan);
+    const notes = critiquePlan(scores, plan);
+    history.push({round:i, total, notes:[...notes], plan:{...plan, risks:[...plan.risks]}});
+    plan = revisePlan(plan, notes, i);
+  }
+  return history;
+}
+
+function renderAutolog(history, profile){
+  const best = history.reduce((a,b)=> b.total > a.total ? b : a, history[0]);
+  let txt = `# 自动迭代完成（${history.length}轮）\n`;
+  txt += `- 最优轮次：Round ${best.round}\n- 最优得分：${best.total}\n- 输入职业：${profile.job}\n`;
+  txt += `- 迭代建议：${advice(history)}\n\n`;
+  history.forEach(r=>{
+    txt += `## Round ${r.round} | 总分 ${r.total}\n`;
+    txt += `- 人群: ${r.plan.niche}\n- 报价: ${r.plan.offer}\n- 获客: ${r.plan.acquisition}\n- 验证: ${r.plan.validation}\n- 自我批评:\n`;
+    if (r.notes.length===0) txt += `  - 无重大短板\n`;
+    else r.notes.forEach(n=> txt += `  - ${n}\n`);
+    txt += "\n";
+  });
+  return txt;
+}
+
+$("runReport").addEventListener("click", ()=>{
+  const report = basicReport(getProfile());
+  latestReport = report;
+  $("output").classList.remove("muted");
+  $("output").textContent = report;
+});
+
+$("runAuto").addEventListener("click", ()=>{
+  const p = getProfile();
+  const history = runAutopilot(p.rounds);
+  const log = renderAutolog(history, p);
+  latestReport = log;
+  $("autolog").classList.remove("muted");
+  $("autolog").textContent = log;
+});
+
+$("copy").addEventListener("click", async ()=>{
+  if(!latestReport){ $("output").textContent = "请先生成结果。"; return; }
+  await navigator.clipboard.writeText(latestReport);
+  $("output").textContent = "✅ 已复制到剪贴板。";
+});
+</script>
+</body>
+</html>
