@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeepSeek AI 聊天页面</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>DeepSeek AI 对话</h1>
+      <p class="hint">
+        为了安全，建议在服务端代理请求。这里是前端直连演示，请仅用于本地测试。
+      </p>
+
+      <section class="card form">
+        <label for="apiKey">DeepSeek API Key</label>
+        <input id="apiKey" type="password" placeholder="sk-..." />
+
+        <label for="prompt">提问内容</label>
+        <textarea id="prompt" rows="6" placeholder="请输入你的问题"></textarea>
+
+        <button id="sendBtn" class="button" type="button">发送给 DeepSeek</button>
+      </section>
+
+      <section class="card">
+        <h2>返回结果</h2>
+        <pre id="result">等待输入...</pre>
+      </section>
+
+      <a class="button secondary" href="index.html">返回静态页面</a>
+    </main>
+
+    <script src="deepseek.js"></script>
+  </body>
+</html>
