@@ -1,5 +1,10 @@
 # AI Venture Operating System (AVOS)
 
+
+> ⚠️ 如果你看到的是这份 README 文本，而不是表单页面，说明你打开错页面了。
+> 请直接打开：`/index.html` 或 `/app/index.html`（通过本地 HTTP 服务访问）。
+
+
 你问得非常关键：**要不要继续多跑几轮？**
 
 我把系统升级成了“可配置轮次 + 收敛判断”，不再只固定 5 轮。
